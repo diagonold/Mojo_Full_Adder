@@ -1,0 +1,8 @@
+INTSTYLE=pa
+INFILE=C:\Users\ryan_\OneDrive\Documents\mojo\Mojo_hardware_V3\work\planAhead\Mojo_hardware_V3\Mojo_hardware_V3.runs\impl_1\mojo_top_0_routed.ncd
+OUTFILE=C:\Users\ryan_\OneDrive\Documents\mojo\Mojo_hardware_V3\work\planAhead\Mojo_hardware_V3\Mojo_hardware_V3.runs\impl_1\mojo_top_0.bit
+FAMILY=Spartan6
+PART=xc6slx9-2tqg144
+WORKINGDIR=C:\Users\ryan_\OneDrive\Documents\mojo\Mojo_hardware_V3\work\planAhead\Mojo_hardware_V3\Mojo_hardware_V3.runs\impl_1
+LICENSE=WebPack
+USER_INFO=211815060_0_0_251

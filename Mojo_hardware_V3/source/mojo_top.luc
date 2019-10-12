@@ -1,0 +1,154 @@
+module mojo_top (
+    input clk,              // 50MHz clock
+    input rst_n,            // reset button (active low)    
+    input cclk,             // configuration clock, AVR ready when high
+    output spi_miso,        // AVR SPI MISO
+    input spi_ss,           // AVR SPI Slave Select
+    input spi_mosi,         // AVR SPI MOSI
+    input spi_sck,          // AVR SPI Clock
+    output spi_channel [4], // AVR general purpose pins (used by default to select ADC channel)
+    input avr_tx,           // AVR TX (FPGA RX)
+    output avr_rx,          // AVR RX (FPGA TX)
+    input avr_rx_busy,       // AVR RX buffer full
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// User declare input and outputs
+    
+    output io_led [3][8],    // To control the [3][8] led on io shield
+    input io_button[5],     // This will be used to change between states
+                            // 0 is left, 1 is centre, 
+    input io_dip[3][8],     // Not sure if we will need this
+        
+    
+    output a,                // a, b and c will be sent to the FPGA as an output
+    output b,
+    output c,
+    input cout,
+    input sum
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        
+  ) {
+// After the module, we can define our signal inputs here
+  sig rst;                  // reset signal
+  sig abc[8][3];            // create a signal that has 8 elements where each elements has 3 bits
+  sig sc[8][2];             // create a signal that has 8 elements where each element has 2 bits
+  
+  .clk(clk) {
+    // The reset conditioner is used to synchronize the reset signal to the FPGA
+    // clock. This ensures the entire FPGA comes out of reset at the same time.
+    reset_conditioner reset_cond;
+    
+    // Here we the edge detector so that the output only changes after 1 clock cycle and not throughout
+    //edge_detector edge_detector (#RISE(1), #FALL(0));
+    
+    // Here we assign the same button to a button_conditioner to prevent debouncing
+    button_conditioner button_cond_center;     // [0]
+    button_conditioner button_cond_up;         // [1]
+    button_conditioner button_cond_right;      // [4]
+    // We use a flip flop as a clock, this will help with our auto state
+    // By adjusting this, we can adjust how long between the auto state
+     dff clock[100]; 
+    
+
+    .rst(rst){
+    
+      // Here we can create our fsm states
+      // As a try out we will test if we can go from 1 state to another with a io_button
+      fsm state = { MANUAL ,ERROR,AUTO };
+      // Here we create a counter to helps us loop through our array
+      dff counter[8];
+                         
+
+    
+    }
+  }
+  
+  always {
+  
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Default declarations, best to not touch
+    reset_cond.in = ~rst_n; // input raw inverted reset signal
+    rst = reset_cond.out;   // conditioned reset
+    
+   
+    spi_miso = bz;          // not using SPI
+    spi_channel = bzzzz;    // not using flags
+    avr_rx = bz;            // not using serial port
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    io_led = 3x{{8h00}};
+    
+    // Here we initialized that the button is connected to edge_detector
+    //edge_detector.in = io_button[1];
+    // Then we connect that to a button button_conditioner
+    button_cond_center.in = io_button[1];
+    button_cond_up.in    = io_button[0];
+    button_cond_right.in = io_button[4];
+    
+    // Here we create an array that holds our necessary input(abc) and output(sc) values
+    abc = { 3b000, 3b001, 3b010, 3b011, 3b100, 3b101, 3b110, 3b111};
+    sc  = { 2b00,  2b01,  2b01,  2b10,  2b01,  2b10,  2b10,  2b11};  
+    
+    // Initial state of inputs
+    a=0;                    
+    b=0;
+    c=0;
+    
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////   
+  
+    case(state.q){
+    // Here we test if we press center, will it turn on or off
+    // Wthout the use of edge detector and button conditioner 
+    // Now we will add the edge detector, see if that helps with the button problem
+      state.MANUAL:
+      // We connect abc to their respective switches
+      a = io_dip[0][0];
+      b = io_dip[0][1];
+      c = io_dip[0][2]; 
+  
+       if(button_cond_center.out == 1 ){
+        state.d = state.AUTO;
+        }
+ ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////      
+      state.ERROR:
+      // If there was an error, the alternate light will light up in the io_shield
+      // Until someone presses the right, which changes our state to 0
+        
+      io_led = 3x{{8hAA}};
+       if(button_cond_right.out == 1){
+        state.d = state.MANUAL;
+        }
+ 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////      
+      state.AUTO:
+        // Shows all the 8 state, we will check the output states
+        // if the output states are wrong then, we will send it to error state
+          
+        a = abc[counter.q][0];
+        b = abc[counter.q][1];
+        c = abc[counter.q][2];
+        clock.d = clock.q + 1;
+        
+        // This is our error testing
+        if(cout != sc[counter.q][1] | sum != sc[counter.q][0]){
+            state.d = state.ERROR;
+             counter.d = 0;
+        }
+        
+        // This allows us to switch state from auto to manual
+         if(button_cond_up.out == 1){
+            state.d = state.MANUAL;
+        }
+        
+              
+        // Here we create a delay till the next state
+        if(clock.q[24] == 1){
+            counter.d = counter.q + 1;  // we increment by 1 to go to the next state
+            clock.d = 0;                // we reset the clock
+        }
+        
+        // Once the counter reaches 7, and then it increases one more, it goes back to zero
+        
+      
+   
+    }
+  }
+}
